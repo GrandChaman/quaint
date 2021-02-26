@@ -57,4 +57,11 @@ impl<'a> Delete<'a> {
         self.conditions = Some(conditions.into());
         self
     }
+
+    /// A list of item names in the query, skipping the anonymous values or
+    /// columns.
+    pub(crate) fn named_selection(&self) -> Vec<String> {
+        // TODO Implement returning first
+        vec![]
+    }
 }

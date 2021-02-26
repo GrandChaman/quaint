@@ -362,11 +362,18 @@ pub trait Visitor<'a> {
             self.write(" ")?;
         }
 
-        let len = ua.selects.len();
+        let len = ua.queries.len();
         let mut types = ua.types.drain(0..);
-
-        for (i, sel) in ua.selects.into_iter().enumerate() {
-            self.visit_select(sel)?;
+        for (i, query) in ua.queries.into_iter().enumerate() {
+            match query {
+                Query::Select(x) => self.visit_select(*x)?,
+                Query::Insert(x) => self.visit_insert(*x)?,
+                Query::Update(x) => self.visit_update(*x)?,
+                Query::Delete(x) => self.visit_delete(*x)?,
+                Query::Union(x) => self.visit_union(*x)?,
+                Query::Merge(x) => self.visit_merge(*x)?,
+                Query::Raw(x) => self.write(x)?,
+            }
 
             if i < (len - 1) {
                 let typ = types.next().unwrap();

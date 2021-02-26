@@ -44,6 +44,15 @@ impl<'a> Merge<'a> {
         self.returning = Some(columns.into_iter().map(|k| k.into()).collect());
         self
     }
+
+    /// A list of item names in the query, skipping the anonymous values or
+    /// columns.
+    pub(crate) fn named_selection(&self) -> Vec<String> {
+        match self.returning.as_ref() {
+            Some(returning) => returning.clone().into_iter().map(|x| x.name.to_string()).collect(),
+            None => vec![],
+        }
+    }
 }
 
 impl<'a> From<Merge<'a>> for Query<'a> {
@@ -123,15 +132,17 @@ impl<'a> TryFrom<Insert<'a>> for Merge<'a> {
                     query.value(val.alias(col.name.clone()))
                 });
 
-                let union = rows.into_iter().fold(Union::new(select), |union, row| {
-                    let cols_vals = columns.iter().zip(row.values.into_iter());
+                let union = rows
+                    .into_iter()
+                    .fold(Union::new(Query::Select(Box::new(select))), |union, row| {
+                        let cols_vals = columns.iter().zip(row.values.into_iter());
 
-                    let select = cols_vals.fold(Select::default(), |query, (col, val)| {
-                        query.value(val.alias(col.name.clone()))
+                        let select = cols_vals.fold(Select::default(), |query, (col, val)| {
+                            query.value(val.alias(col.name.clone()))
+                        });
+
+                        union.all(Query::Select(Box::new(select)))
                     });
-
-                    union.all(select)
-                });
 
                 Query::from(union)
             }

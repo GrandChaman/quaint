@@ -239,6 +239,15 @@ impl<'a> Insert<'a> {
         self.returning = Some(columns.into_iter().map(|k| k.into()).collect());
         self
     }
+
+    /// A list of item names in the query, skipping the anonymous values or
+    /// columns.
+    pub(crate) fn named_selection(&self) -> Vec<String> {
+        match self.returning.as_ref() {
+            Some(returning) => returning.clone().into_iter().map(|x| x.name.to_string()).collect(),
+            None => vec![],
+        }
+    }
 }
 
 impl<'a> SingleRowInsert<'a> {

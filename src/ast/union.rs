@@ -22,7 +22,7 @@ impl fmt::Display for UnionType {
 /// A builder for a `UNION`s over multiple `SELECT` statements.
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct Union<'a> {
-    pub(crate) selects: Vec<Select<'a>>,
+    pub(crate) queries: Vec<Query<'a>>,
     pub(crate) types: Vec<UnionType>,
     pub(crate) ctes: Vec<CommonTableExpression<'a>>,
 }
@@ -40,9 +40,9 @@ impl<'a> From<Union<'a>> for Expression<'a> {
 }
 
 impl<'a> Union<'a> {
-    pub fn new(q: Select<'a>) -> Self {
+    pub fn new(q: Query<'a>) -> Self {
         Self {
-            selects: vec![q],
+            queries: vec![q],
             types: Vec::new(),
             ctes: Vec::new(),
         }
@@ -67,8 +67,8 @@ impl<'a> Union<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn all(mut self, q: Select<'a>) -> Self {
-        self.selects.push(q);
+    pub fn all(mut self, q: Query<'a>) -> Self {
+        self.queries.push(q);
         self.types.push(UnionType::All);
         self
     }
@@ -92,8 +92,8 @@ impl<'a> Union<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn distinct(mut self, q: Select<'a>) -> Self {
-        self.selects.push(q);
+    pub fn distinct(mut self, q: Query<'a>) -> Self {
+        self.queries.push(q);
         self.types.push(UnionType::Distinct);
         self
     }
@@ -101,7 +101,7 @@ impl<'a> Union<'a> {
     /// A list of item names in the queries, skipping the anonymous values or
     /// columns.
     pub(crate) fn named_selection(&self) -> Vec<String> {
-        self.selects
+        self.queries
             .iter()
             .fold(BTreeSet::new(), |mut acc, select| {
                 for name in select.named_selection() {
@@ -123,19 +123,25 @@ impl<'a> Union<'a> {
         top_level: bool,
         level: &mut usize,
     ) -> either::Either<Self, (Self, Vec<CommonTableExpression<'a>>)> {
-        let mut queries = Vec::with_capacity(self.selects.len());
+        let mut queries = Vec::with_capacity(self.queries.len());
         let mut combined_ctes = Vec::new();
 
-        for select in self.selects.drain(0..) {
-            let (select, ctes) = select
-                .convert_tuple_selects_to_ctes(false, level)
-                .expect_right("Nested select should always be right.");
+        for query in self.queries.drain(0..) {
+            let (query, ctes) = match query {
+                Query::Select(select) => {
+                    let (query, cte) = select
+                        .convert_tuple_selects_to_ctes(false, level)
+                        .expect_right("Nested select should always be right.");
+                    (Query::Select(Box::new(query)), Some(cte))
+                }
+                _ => (query, None),
+            };
 
-            queries.push(select);
-            combined_ctes.extend(ctes);
+            queries.push(query);
+            combined_ctes.extend(ctes.unwrap_or_default());
         }
 
-        self.selects = queries;
+        self.queries = queries;
 
         if top_level {
             self.ctes = combined_ctes;

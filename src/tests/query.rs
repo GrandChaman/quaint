@@ -1583,7 +1583,7 @@ async fn compare_tuple_in_select(api: &mut dyn TestApi) -> crate::Result<()> {
         .value(val!("mus").alias("a"))
         .value(val!("pus").alias("b"));
 
-    let union = Union::new(sel_1).all(sel_2);
+    let union = Union::new(Query::from(sel_1)).all(Query::from(sel_2));
 
     let id1 = Column::new("id1").table(table.as_str());
     let id2 = Column::new("id2").table(table.as_str());
@@ -1636,7 +1636,7 @@ async fn compare_tuple_not_in_select(api: &mut dyn TestApi) -> crate::Result<()>
         .value(val!("mus").alias("a"))
         .value(val!("pus").alias("b"));
 
-    let union = Union::new(sel_1).all(sel_2);
+    let union = Union::new(Query::from(sel_1)).all(Query::from(sel_2));
 
     let id1 = Column::new("id1").table(table.as_str());
     let id2 = Column::new("id2").table(table.as_str());
