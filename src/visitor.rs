@@ -366,14 +366,20 @@ pub trait Visitor<'a> {
         let mut types = ua.types.drain(0..);
         for (i, query) in ua.queries.into_iter().enumerate() {
             match query {
-                Query::Select(x) => self.visit_select(*x)?,
+                Query::Select(x) => {
+                    match x.limit.is_some() || !x.ordering.is_empty() {
+                        // If a `SELECT` contains a `LIMIT` or `ORDER BY`, it should be wrapped in parentheses.
+                        true => self.surround_with("(", ")", |ref mut se| se.visit_select(*x)),
+                        false => self.visit_select(*x),
+                    }?
+                }
                 Query::Insert(x) => self.visit_insert(*x)?,
                 Query::Update(x) => self.visit_update(*x)?,
                 Query::Delete(x) => self.visit_delete(*x)?,
                 Query::Union(x) => self.visit_union(*x)?,
                 Query::Merge(x) => self.visit_merge(*x)?,
                 Query::Raw(x) => self.write(x)?,
-            }
+            };
 
             if i < (len - 1) {
                 let typ = types.next().unwrap();
